@@ -1,0 +1,6 @@
+Drug Name,Food Item,Interaction Summary,Severity,Mechanism,Recommendation,Source URL
+Warfarin,Spinach,"Spinach is high in vitamin K, which counteracts Warfarin and reduces its effectiveness.",High,"Antagonistic effect on anticoagulation","Limit intake of vitamin K-rich foods like spinach.","https://www.mayoclinic.org"
+Atorvastatin,Grapefruit Juice,"Grapefruit juice can increase blood levels of Atorvastatin, increasing risk of muscle damage.",High,"Inhibits CYP3A4 enzyme metabolism","Avoid grapefruit juice while taking Atorvastatin.","https://www.fda.gov"
+Warfarin,Green Tea,"Green tea contains vitamin K, which may interfere with Warfarin’s effect on blood clotting.",Moderate,"Potential reduction in anticoagulant activity","Monitor intake; prefer decaffeinated/herbal teas.","https://www.nih.gov"
+Metformin,Alcohol,"Alcohol may increase the risk of lactic acidosis when taken with Metformin.",High,"Lactic acid buildup","Avoid heavy alcohol consumption.","https://www.webmd.com"
+Levothyroxine,Soy Products,"Soy can interfere with the absorption of Levothyroxine.",Moderate,"Reduced intestinal absorption","Space intake several hours apart.","https://www.ncbi.nlm.nih.gov"
