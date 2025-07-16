@@ -46,6 +46,7 @@ python ingestion.py
 5. Run the application:
 streamlit run app.py
 
+PERFORMANCE NOTE: Due to the complexity of processing and generating AI-powered interaction analysis, the response time may take a few minutes to appear after submitting your medications and foods.
 
 Example
 Input:
