@@ -70,33 +70,31 @@ def create_template_response(user_question, relevant_docs):
     drugs = drugs_match.group(1).strip() if drugs_match else "your medications"
     foods = foods_match.group(1).strip() if foods_match else "your foods"
     
+    # Load all known drugs and foods for better matching
+    try:
+        with open('data/known_drugs.txt', 'r') as f:
+            known_drugs = [line.strip().lower() for line in f if line.strip()]
+        with open('data/known_foods.txt', 'r') as f:
+            known_foods = [line.strip().lower() for line in f if line.strip()]
+    except:
+        # Fallback to hardcoded list if files can't be read
+        known_drugs = ['metformin', 'atorvastatin', 'lisinopril', 'digoxin', 'warfarin', 'levothyroxine', 'simvastatin', 'phenelzine']
+        known_foods = ['alcohol', 'grapefruit', 'bananas', 'apple', 'high-fiber foods', 'calcium supplements', 'cheese', 'vitamin k']
+    
     # Extract specific drug and food names from the question
     drug_list = []
     food_list = []
     
-    # Look for drug names in the question
-    if "metformin" in user_question.lower():
-        drug_list.append("metformin")
-    if "atorvastatin" in user_question.lower():
-        drug_list.append("atorvastatin")
-    if "lisinopril" in user_question.lower():
-        drug_list.append("lisinopril")
-    if "digoxin" in user_question.lower():
-        drug_list.append("digoxin")
-    if "warfarin" in user_question.lower():
-        drug_list.append("warfarin")
+    # Check for any known drugs in the question
+    question_lower = user_question.lower()
+    for drug in known_drugs:
+        if drug in question_lower:
+            drug_list.append(drug)
     
-    # Look for food names in the question
-    if "alcohol" in user_question.lower():
-        food_list.append("alcohol")
-    if "grapefruit" in user_question.lower():
-        food_list.append("grapefruit")
-    if "bananas" in user_question.lower():
-        food_list.append("bananas")
-    if "apple" in user_question.lower():
-        food_list.append("apple")
-    if "high-fiber" in user_question.lower() or "fiber" in user_question.lower():
-        food_list.append("high-fiber foods")
+    # Check for any known foods in the question
+    for food in known_foods:
+        if food in question_lower:
+            food_list.append(food)
     
     # Filter relevant documents for specific drug-food combinations
     specific_interactions = []
@@ -133,29 +131,27 @@ def run_rag_query(user_question: str):
         drug_list = []
         food_list = []
         
-        # Look for drug names in the question
-        if "metformin" in user_question.lower():
-            drug_list.append("metformin")
-        if "atorvastatin" in user_question.lower():
-            drug_list.append("atorvastatin")
-        if "lisinopril" in user_question.lower():
-            drug_list.append("lisinopril")
-        if "digoxin" in user_question.lower():
-            drug_list.append("digoxin")
-        if "warfarin" in user_question.lower():
-            drug_list.append("warfarin")
+        # Load all known drugs and foods for better matching
+        try:
+            with open('data/known_drugs.txt', 'r') as f:
+                known_drugs = [line.strip().lower() for line in f if line.strip()]
+            with open('data/known_foods.txt', 'r') as f:
+                known_foods = [line.strip().lower() for line in f if line.strip()]
+        except:
+            # Fallback to hardcoded list if files can't be read
+            known_drugs = ['metformin', 'atorvastatin', 'lisinopril', 'digoxin', 'warfarin', 'levothyroxine', 'simvastatin', 'phenelzine']
+            known_foods = ['alcohol', 'grapefruit', 'bananas', 'apple', 'high-fiber foods', 'calcium supplements', 'cheese', 'vitamin k']
         
-        # Look for food names in the question
-        if "alcohol" in user_question.lower():
-            food_list.append("alcohol")
-        if "grapefruit" in user_question.lower():
-            food_list.append("grapefruit")
-        if "bananas" in user_question.lower():
-            food_list.append("bananas")
-        if "apple" in user_question.lower():
-            food_list.append("apple")
-        if "high-fiber" in user_question.lower() or "fiber" in user_question.lower():
-            food_list.append("high-fiber foods")
+        # Check for any known drugs in the question
+        question_lower = user_question.lower()
+        for drug in known_drugs:
+            if drug in question_lower:
+                drug_list.append(drug)
+        
+        # Check for any known foods in the question
+        for food in known_foods:
+            if food in question_lower:
+                food_list.append(food)
 
         # Step 1: Retrieve relevant documents from FAISS index
         vectorstore = get_vectorstore()
