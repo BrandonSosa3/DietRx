@@ -1,15 +1,49 @@
 import streamlit as st
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from rag_chain import run_rag_query as original_run_rag_query
+import os
+import sys
+from pathlib import Path
 
-import streamlit as st
+# Add error handling for missing files
+def check_required_files():
+    """Check if required data files exist"""
+    required_files = [
+        "data/known_drugs.txt",
+        "data/known_foods.txt", 
+        "faiss_index/index.faiss",
+        "faiss_index/index.pkl"
+    ]
+    
+    missing_files = []
+    for file_path in required_files:
+        if not Path(file_path).exists():
+            missing_files.append(file_path)
+    
+    return missing_files
+
+# Check for missing files first
+missing_files = check_required_files()
+if missing_files:
+    st.error(f"❌ Missing required files: {', '.join(missing_files)}")
+    st.stop()
+
+# Now import the ML libraries
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    from langchain_community.vectorstores import FAISS
+    from rag_chain import run_rag_query as original_run_rag_query
+except ImportError as e:
+    st.error(f"❌ Failed to import required libraries: {e}")
+    st.stop()
+
 st.write("App started successfully!")
 
-
 def load_known_items(file_path):
-    with open(file_path, "r") as f:
-        return set(line.strip().lower() for line in f if line.strip())
+    try:
+        with open(file_path, "r") as f:
+            return set(line.strip().lower() for line in f if line.strip())
+    except FileNotFoundError:
+        st.error(f"❌ Could not find {file_path}")
+        return set()
 
 known_drugs = load_known_items("data/known_drugs.txt")
 known_foods = load_known_items("data/known_foods.txt")
@@ -84,25 +118,39 @@ def show_custom_error_message(unknown_drugs, unknown_foods):
 
     st.markdown(f'<div class="custom-error">{message}</div>', unsafe_allow_html=True)
 
-# Load embeddings and vectorstore once per session
-if "vectorstore" not in st.session_state or "embeddings" not in st.session_state:
-    with st.spinner("Loading AI models and index... This happens once per session."):
-        st.session_state.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        st.session_state.vectorstore = FAISS.load_local(
-            "faiss_index", st.session_state.embeddings, allow_dangerous_deserialization=True
-        )
+# Load embeddings and vectorstore once per session with better error handling
+@st.cache_resource
+def load_models():
+    """Load models with error handling"""
+    try:
+        with st.spinner("Loading AI models and index... This may take a minute on first run."):
+            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+            vectorstore = FAISS.load_local(
+                "faiss_index", embeddings, allow_dangerous_deserialization=True
+            )
+            return embeddings, vectorstore
+    except Exception as e:
+        st.error(f"❌ Failed to load models: {e}")
+        return None, None
 
-# Wrapper to use cached vectorstore in session state
+# Load models
+embeddings, vectorstore = load_models()
+
+if embeddings is None or vectorstore is None:
+    st.error("❌ Could not load required models. Please check your deployment.")
+    st.stop()
+
+# Wrapper to use cached vectorstore
 def run_rag_query(user_question: str):
-    vectorstore = st.session_state.vectorstore
-    relevant_docs = vectorstore.similarity_search(user_question, k=4)
+    try:
+        relevant_docs = vectorstore.similarity_search(user_question, k=4)
 
-    context = ""
-    for doc in relevant_docs:
-        context += f"{doc.page_content}\n\n"
+        context = ""
+        for doc in relevant_docs:
+            context += f"{doc.page_content}\n\n"
 
-    # This prompt is passed to your rag_chain.py’s model
-    prompt = f"""Using only the relevant medical information below, provide a clear and concise answer to the question. Do NOT repeat the data or the question.
+        # This prompt is passed to your rag_chain.py's model
+        prompt = f"""Using only the relevant medical information below, provide a clear and concise answer to the question. Do NOT repeat the data or the question.
 
 Relevant Info:
 {context}
@@ -111,8 +159,11 @@ Question: {user_question}
 
 Answer:"""
 
-    # Call your existing function for generation
-    return original_run_rag_query(user_question)
+        # Call your existing function for generation
+        return original_run_rag_query(user_question)
+    except Exception as e:
+        st.error(f"❌ Error during RAG query: {e}")
+        return "Sorry, I encountered an error while processing your request. Please try again."
 
 # UI Title and description
 st.title("💊 DietRx — AI Diet and Drug Interaction Advisor")

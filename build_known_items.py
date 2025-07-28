@@ -41,3 +41,5 @@ with open("data/known_foods.txt", "w") as f:
 print(f"✅ Saved {len(known_foods)} known foods to data/known_foods.txt")
 
 
+
+
