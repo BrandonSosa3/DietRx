@@ -41,6 +41,10 @@ DietRx/
 
 ## 🚀 Quick Start
 
+### Cloud Deployment
+
+The app is automatically deployed on Streamlit Cloud and available at: https://dietrx.streamlit.app
+
 ### Local Development
 
 1. **Clone the repository:**
@@ -64,10 +68,6 @@ DietRx/
    ```bash
    streamlit run app.py
    ```
-
-### Cloud Deployment
-
-The app is automatically deployed on Streamlit Cloud and available at: [dietrx.streamlit.app](https://dietrx.streamlit.app)
 
 ## 💡 Usage Example
 
