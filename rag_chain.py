@@ -70,20 +70,57 @@ def create_template_response(user_question, relevant_docs):
     drugs = drugs_match.group(1).strip() if drugs_match else "your medications"
     foods = foods_match.group(1).strip() if foods_match else "your foods"
     
-    # Extract relevant information from documents
-    interactions = []
+    # Extract specific drug and food names from the question
+    drug_list = []
+    food_list = []
+    
+    # Look for drug names in the question
+    if "metformin" in user_question.lower():
+        drug_list.append("metformin")
+    if "atorvastatin" in user_question.lower():
+        drug_list.append("atorvastatin")
+    if "lisinopril" in user_question.lower():
+        drug_list.append("lisinopril")
+    if "digoxin" in user_question.lower():
+        drug_list.append("digoxin")
+    if "warfarin" in user_question.lower():
+        drug_list.append("warfarin")
+    
+    # Look for food names in the question
+    if "alcohol" in user_question.lower():
+        food_list.append("alcohol")
+    if "grapefruit" in user_question.lower():
+        food_list.append("grapefruit")
+    if "bananas" in user_question.lower():
+        food_list.append("bananas")
+    if "apple" in user_question.lower():
+        food_list.append("apple")
+    if "high-fiber" in user_question.lower() or "fiber" in user_question.lower():
+        food_list.append("high-fiber foods")
+    
+    # Filter relevant documents for specific drug-food combinations
+    specific_interactions = []
     for doc in relevant_docs:
         content = doc.page_content.lower()
-        if any(keyword in content for keyword in ['interaction', 'avoid', 'limit', 'caution']):
-            interactions.append(doc.page_content)
+        doc_text = doc.page_content
+        
+        # Check if this document contains information about the specific drugs and foods
+        has_relevant_drug = any(drug.lower() in content for drug in drug_list) if drug_list else True
+        has_relevant_food = any(food.lower() in content for food in food_list) if food_list else True
+        
+        if has_relevant_drug and has_relevant_food:
+            # Look for interaction keywords
+            if any(keyword in content for keyword in ['interaction', 'avoid', 'limit', 'caution', 'warning', 'risk']):
+                specific_interactions.append(doc_text)
     
-    if interactions:
-        response = f"Based on the medical information available, here are the key points about interactions between {drugs} and {foods}:\n\n"
-        for i, interaction in enumerate(interactions[:3], 1):  # Limit to top 3
+    if specific_interactions:
+        response = f"Based on the medical information available, here are the key points about interactions between {', '.join(drug_list) if drug_list else 'your medications'} and {', '.join(food_list) if food_list else 'your foods'}:\n\n"
+        for i, interaction in enumerate(specific_interactions[:3], 1):  # Limit to top 3
             response += f"{i}. {interaction}\n\n"
         response += "⚠️ Always consult your healthcare provider for personalized medical advice."
     else:
-        response = f"I found information about {drugs} and {foods}, but no specific interaction warnings were identified in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
+        # If no specific interactions found, provide a general response
+        response = f"I found information about {', '.join(drug_list) if drug_list else 'your medications'} and {', '.join(food_list) if food_list else 'your foods'}, but no specific interaction warnings were identified in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
     
     return response
 
@@ -92,18 +129,67 @@ def run_rag_query(user_question: str):
     try:
         print("\n=== MODEL OUTPUT ===")
 
-        # Step 1: Retrieve top 4 relevant documents from FAISS index
+        # Extract specific drug and food names from the question for better filtering
+        drug_list = []
+        food_list = []
+        
+        # Look for drug names in the question
+        if "metformin" in user_question.lower():
+            drug_list.append("metformin")
+        if "atorvastatin" in user_question.lower():
+            drug_list.append("atorvastatin")
+        if "lisinopril" in user_question.lower():
+            drug_list.append("lisinopril")
+        if "digoxin" in user_question.lower():
+            drug_list.append("digoxin")
+        if "warfarin" in user_question.lower():
+            drug_list.append("warfarin")
+        
+        # Look for food names in the question
+        if "alcohol" in user_question.lower():
+            food_list.append("alcohol")
+        if "grapefruit" in user_question.lower():
+            food_list.append("grapefruit")
+        if "bananas" in user_question.lower():
+            food_list.append("bananas")
+        if "apple" in user_question.lower():
+            food_list.append("apple")
+        if "high-fiber" in user_question.lower() or "fiber" in user_question.lower():
+            food_list.append("high-fiber foods")
+
+        # Step 1: Retrieve relevant documents from FAISS index
         vectorstore = get_vectorstore()
         if vectorstore is None:
             return "❌ Could not load the knowledge base. Please try again later."
+        
+        # Create a more specific search query if we have drug/food names
+        if drug_list and food_list:
+            search_query = f"{' '.join(drug_list)} {' '.join(food_list)} interaction"
+        else:
+            search_query = user_question
             
-        relevant_docs = vectorstore.similarity_search(user_question, k=4)
-        if not relevant_docs:
+        relevant_docs = vectorstore.similarity_search(search_query, k=6)  # Get more docs to filter from
+        
+        # Filter documents to only include those with the specific drugs and foods
+        filtered_docs = []
+        for doc in relevant_docs:
+            content = doc.page_content.lower()
+            has_relevant_drug = any(drug.lower() in content for drug in drug_list) if drug_list else True
+            has_relevant_food = any(food.lower() in content for food in food_list) if food_list else True
+            
+            if has_relevant_drug and has_relevant_food:
+                filtered_docs.append(doc)
+        
+        # If no filtered docs, use original docs but limit to top 2
+        if not filtered_docs:
+            filtered_docs = relevant_docs[:2]
+            
+        if not filtered_docs:
             return "I couldn't find any information about that query. Please try different wording or check spelling."
 
         # Step 2: Concatenate retrieved document content as context
         full_context = ""
-        for doc in relevant_docs:
+        for doc in filtered_docs:
             full_context += f"{doc.page_content}\n\n"
 
         # Step 3: Try to get model and tokenizer
@@ -112,7 +198,7 @@ def run_rag_query(user_question: str):
         # If model loading fails, use template-based response
         if tokenizer is None or model is None:
             print("Model loading failed, using template-based response")
-            return create_template_response(user_question, relevant_docs)
+            return create_template_response(user_question, filtered_docs)
 
         # Step 4: Tokenize context and truncate if too long
         context_tokens = tokenizer(full_context, return_tensors="pt", truncation=False)["input_ids"][0]
