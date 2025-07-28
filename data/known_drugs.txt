@@ -1,0 +1,8 @@
+atorvastatin
+digoxin
+levothyroxine
+lisinopril
+metformin
+phenelzine
+simvastatin
+warfarin

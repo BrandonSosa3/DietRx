@@ -1,39 +1,23 @@
 import requests
 import pandas as pd
 import os
+import re
 
 os.makedirs("data", exist_ok=True)
 OUTPUT_FILE = "data/drug_food_interactions.csv"
 
+# List of food-related keywords to identify food interactions
+FOOD_TERMS = [
+    "grapefruit", "alcohol", "caffeine", "milk", "cheese", "banana", "spinach",
+    "broccoli", "green tea", "charcoal grilled meat", "vitamin K", "cranberry",
+    "garlic", "ginseng", "St. John's wort", "licorice", "fiber supplements",
+    "iron supplements", "calcium supplements", "chocolate", "salt substitutes",
+    "fish oil", "soy products", "citrus", "high-fat meals"
+]
+
 def fetch_openfda_interactions(queries=None, limit=50):
     if queries is None:
-        queries = [
-            "drug_interactions:grapefruit",
-            "drug_interactions:alcohol",
-            "drug_interactions:caffeine",
-            "drug_interactions:milk",
-            "drug_interactions:cheese",
-            "drug_interactions:bananas",
-            "drug_interactions:spinach",
-            "drug_interactions:broccoli",
-            "drug_interactions:green tea",
-            "drug_interactions:charcoal grilled meat",
-            "drug_interactions:vitamin K",
-            "drug_interactions:cranberry",
-            "drug_interactions:garlic",
-            "drug_interactions:ginseng",
-            "drug_interactions:St. John's wort",
-            "drug_interactions:licorice",
-            "drug_interactions:fiber supplements",
-            "drug_interactions:iron supplements",
-            "drug_interactions:calcium supplements",
-            "drug_interactions:chocolate",
-            "drug_interactions:salt substitutes",
-            "drug_interactions:fish oil",
-            "drug_interactions:soy products",
-            "drug_interactions:citrus",
-            "drug_interactions:high-fat meals"
-        ]
+        queries = [f"drug_interactions:{term}" for term in FOOD_TERMS]
 
     base_url = "https://api.fda.gov/drug/label.json"
     all_results = []
@@ -51,17 +35,27 @@ def fetch_openfda_interactions(queries=None, limit=50):
 
     return all_results
 
+def contains_food_term(text):
+    """Return True if text mentions any known food term (case-insensitive)."""
+    text_lower = text.lower()
+    for term in FOOD_TERMS:
+        if re.search(r'\b' + re.escape(term.lower()) + r'\b', text_lower):
+            return True
+    return False
+
 def process_results(results):
     interactions = []
     for item in results:
         drug_name = item.get("openfda", {}).get("brand_name", ["Unknown"])[0]
         interaction_texts = item.get("drug_interactions", [])
         for text in interaction_texts:
-            interactions.append({"drug": drug_name, "interaction": text})
+            # Only keep if interaction text mentions any food term
+            if contains_food_term(text):
+                interactions.append({"drug": drug_name, "interaction": text})
     return pd.DataFrame(interactions)
 
 def update_interactions():
-    print("Fetching drug-food interactions...")
+    print("Fetching drug-food interactions from OpenFDA...")
     results = fetch_openfda_interactions()
     if not results:
         print("No data fetched.")
@@ -69,12 +63,14 @@ def update_interactions():
 
     df = process_results(results)
     if df.empty:
-        print("No interactions found.")
+        print("No drug-food interactions found.")
         return
 
     df.to_csv(OUTPUT_FILE, index=False)
-    print(f"✅ Updated interaction file saved at {OUTPUT_FILE}")
+    print(f"✅ Updated drug-food interaction file saved at {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     update_interactions()
+
+
 
