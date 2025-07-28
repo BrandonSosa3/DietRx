@@ -102,10 +102,11 @@ def create_template_response(user_question, relevant_docs):
         content = doc.page_content.lower()
         doc_text = doc.page_content
         
-        # Check if this document contains information about the specific drugs and foods
+        # Check if this document contains BOTH the specific drug AND food
         has_relevant_drug = any(drug.lower() in content for drug in drug_list) if drug_list else True
         has_relevant_food = any(food.lower() in content for food in food_list) if food_list else True
         
+        # Only include if BOTH drug AND food are present in the same document
         if has_relevant_drug and has_relevant_food:
             # Look for interaction keywords
             if any(keyword in content for keyword in ['interaction', 'avoid', 'limit', 'caution', 'warning', 'risk']):
@@ -117,8 +118,11 @@ def create_template_response(user_question, relevant_docs):
             response += f"{i}. {interaction}\n\n"
         response += "⚠️ Always consult your healthcare provider for personalized medical advice."
     else:
-        # If no specific interactions found, provide a general response
-        response = f"I found information about {', '.join(drug_list) if drug_list else 'your medications'} and {', '.join(food_list) if food_list else 'your foods'}, but no specific interaction warnings were identified in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
+        # If no specific interactions found, provide a clear message
+        if drug_list and food_list:
+            response = f"I couldn't find any specific interaction information between {' and '.join(drug_list)} and {' and '.join(food_list)} in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
+        else:
+            response = f"I found information about {', '.join(drug_list) if drug_list else 'your medications'} and {', '.join(food_list) if food_list else 'your foods'}, but no specific interaction warnings were identified in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
     
     return response
 
@@ -164,24 +168,27 @@ def run_rag_query(user_question: str):
         else:
             search_query = user_question
             
-        relevant_docs = vectorstore.similarity_search(search_query, k=6)  # Get more docs to filter from
+        relevant_docs = vectorstore.similarity_search(search_query, k=10)  # Get more docs to filter from
         
         # Filter documents to only include those with the specific drugs and foods
         filtered_docs = []
         for doc in relevant_docs:
             content = doc.page_content.lower()
+            
+            # Check if this document contains BOTH the specific drug AND food
             has_relevant_drug = any(drug.lower() in content for drug in drug_list) if drug_list else True
             has_relevant_food = any(food.lower() in content for food in food_list) if food_list else True
             
+            # Only include if BOTH drug AND food are present in the same document
             if has_relevant_drug and has_relevant_food:
                 filtered_docs.append(doc)
         
-        # If no filtered docs, use original docs but limit to top 2
+        # If no filtered docs found, return a specific message
         if not filtered_docs:
-            filtered_docs = relevant_docs[:2]
-            
-        if not filtered_docs:
-            return "I couldn't find any information about that query. Please try different wording or check spelling."
+            if drug_list and food_list:
+                return f"I couldn't find any specific interaction information between {' and '.join(drug_list)} and {' and '.join(food_list)} in the available medical data. However, it's always best to consult your healthcare provider about potential interactions."
+            else:
+                return "I couldn't find any information about that query. Please try different wording or check spelling."
 
         # Step 2: Concatenate retrieved document content as context
         full_context = ""
