@@ -3,6 +3,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from rag_chain import run_rag_query as original_run_rag_query
 
+import streamlit as st
+st.write("App started successfully!")
+
+
 def load_known_items(file_path):
     with open(file_path, "r") as f:
         return set(line.strip().lower() for line in f if line.strip())
